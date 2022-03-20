@@ -1,3 +1,5 @@
+'use strict';
+
 const sql  = require('mssql');
 
 /**
@@ -15,31 +17,26 @@ const config = {
         idleTimeoutMillis: 30000    /**The number of milliseconds before closing an unused connection (default: 30000) */
     }
 }
+
 /**
  * Recommended: Open a single connection pool by application. The subsequents opened
  * connections are iddle managed inside the pool. 
  * 
  * Built-in healt check connection are performed.
  */
-const pool = new sql.ConnectionPool(config);
-const poolConnect = pool.connect();
+const pool = new sql.ConnectionPool(config, function(err){
+    throw new Error(err);
+});
 
 /**
  * 
  * @param {string} queryRaw The sql query sentence to be executed
  * @results Array
  */
-const execQueryRaw = async (queryRaw) => {
-    await poolConnect;
-    try {
-        const request = pool.request();
-        const result = await request.query(queryRaw);
+module.exports.execQueryRaw = async (queryRaw) => {
+    pool.connect(err => err);
 
-        return result;
-    }
-    catch (err) {
-        throw new Error(err);
-    }
+    console.log('connected..');
 }
 
 /**
@@ -55,43 +52,39 @@ const execQueryRaw = async (queryRaw) => {
  * 
  * @returns Promise {recordset: Array(n), output: Object }
  */
-const execProcedure = async (procedureName, paramsArray = []) => {
-    await poolConnect;  /**Ensures the iddle connection is opened */
+// const execProcedure = async (procedureName, paramsArray = []) => {
+//     await poolConnect();  /**Ensures the iddle connection is opened */
+//     const request = pool.request();
 
-    try {
-        const request = pool.request();
-        /**
-         * Determines if the output field was supplied, then
-         * the parameter configuration is established, otherwise, the field
-         * is considered as an input parameter.
-         */
-        if (paramsArray.length > 0) {
+//     try {
+//         /**
+//          * Determines if the output field was supplied, then
+//          * the parameter configuration is established, otherwise, the field
+//          * is considered as an input parameter.
+//          */
+//         if (paramsArray.length > 0) {
 
-            paramsArray.forEach(e => {
-                if (typeof e.output === "boolean" || e.output)
-                request.output(e.name, e.dbType, e.value || null);
-                else
-                request.input( e.name, e.dbType, e.value );
-            });
+//             paramsArray.forEach(e => {
+//                 if (typeof e.output === "boolean" || e.output)
+//                 request.output(e.name, e.dbType, e.value || null);
+//                 else
+//                 request.input( e.name, e.dbType, e.value );
+//             });
 
-        }
+//         }
         
-        const result = await request.execute(procedureName);
+//         const result = await request.execute(procedureName);
 
-        return {recordset: result.recordset, output: result.output};
+//         return {recordset: result.recordset, output: result.output};
 
-    } catch (error) {
-        throw new Error( error );
-    }
-}
+//     } catch (error) {
+//         throw new Error( error );
+//     } finally {
+//         if (request)
+//             request.cancel();
+//     }
+// }
 
-/**
- * Event listener dispatched on connection error
- */
-pool.on('error', err => {
-    throw new Error(`An error has ocurred trying to connect: ${err}`);
-})
-
-module.exports.execQueryRaw = execQueryRaw;
-module.exports.execProcedure = execProcedure;
+// module.exports.execQueryRaw = execQueryRaw;
+// module.exports.execProcedure = execProcedure;
 
